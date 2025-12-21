@@ -1,74 +1,107 @@
+import os
 import asyncio
-import yt_dlp
-
 from pyrogram import Client, filters
 from pyrogram.types import Message
-
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.input_stream.quality import HighQualityAudio
+from pytgcalls.types import StreamType
+from yt_dlp import YoutubeDL
+from dotenv import load_dotenv
 
-# ===== CONFIG =====
-API_ID = 123456
-API_HASH = "API_HASH_HERE"
-BOT_TOKEN = "BOT_TOKEN_HERE"
-SESSION_STRING = "SESSION_STRING_HERE"
-# ==================
+load_dotenv()
 
-bot = Client(
-    "musicbot",
+API_ID = "36549849"
+API_HASH = "ad1fc69799c0dcda94eec0d444e399ed"
+BOT_TOKEN = "8055723339:AAEV59ZFb0zL_jMFnLANkxtPjn8p99AZRpw"
+SESSION_NAME = "BQIttNkAfDTMpvQVYuSTgZo5-dHiDor_mBtwy5SfZ3j923oT_zyQx6nPCpXfv8lPN-o720AoqPJQkUSjPMNiOzSglD-pWikKdcc0D28y0rM6L4FoKAqBhU3m2imBcLaEVR6rnKluH7nTZvyz1ZZ0mCEo-pjuGjDupNLXtQ4Ks0BISgfrltx6cYyZmNKuB54MynHhw2m-EQVMIZWRQiRsrrCFkCBnnqJGgf6w4Qszy1hbAXiKKWJ1ZW458eGxUDypR9LxG5Xt2DO1qLvnpMiLLhO1r0OLSIkgf8iLeBoZhGfN_oGWeRC5h4NcSEDTjL4mSRxSIh0w0iTiwKv98wyqMZy_9vz5XQAAAAH5PpfdAA"
+
+app = Client(
+    SESSION_NAME,
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
+    bot_token=BOT_TOKEN
 )
 
-user = Client(
-    "musicuser",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=SESSION_STRING,
-)
+pytgcalls = PyTgCalls(app)
 
-call = PyTgCalls(user)
-
-ydl_opts = {
+ytdl_opts = {
     "format": "bestaudio",
     "quiet": True,
-    "outtmpl": "downloads/%(id)s.%(ext)s",
+    "nocheckcertificate": True,
+    "extract_flat": False,
+    "cookiefile": None,
 }
 
-def download_audio(query: str):
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=True)
-        return ydl.prepare_filename(info)
+ydl = YoutubeDL(ytdl_opts)
 
-@bot.on_message(filters.command("play") & filters.group)
-async def play(_, message: Message):
-    if len(message.command) < 2:
-        return await message.reply("song name ya link do")
-
-    query = " ".join(message.command[1:])
-    msg = await message.reply("🔎 download ho raha hai...")
-
-    file = download_audio(query)
-
-    await call.join_group_call(
-        message.chat.id,
-        AudioPiped(file, HighQualityAudio()),
+# ──────────────────────────────
+# START
+# ──────────────────────────────
+@app.on_message(filters.command("start"))
+async def start(_, message: Message):
+    await message.reply_text(
+        "🎵 **Music Bot Online!**\n\n"
+        "`/play <song name or url>`\n"
+        "`/pause`\n"
+        "`/resume`\n"
+        "`/stop`"
     )
 
-    await msg.edit("▶️ music play ho raha hai")
+# ──────────────────────────────
+# PLAY
+# ──────────────────────────────
+@app.on_message(filters.command("play") & filters.group)
+async def play(_, message: Message):
+    if not message.command[1:]:
+        return await message.reply("❌ Song name ya URL do")
 
-@bot.on_message(filters.command("stop") & filters.group)
+    query = " ".join(message.command[1:])
+
+    await message.reply("🔍 Searching...")
+
+    info = ydl.extract_info(f"ytsearch:{query}", download=False)["entries"][0]
+    url = info["url"]
+    title = info["title"]
+
+    await pytgcalls.join_group_call(
+        message.chat.id,
+        AudioPiped(url),
+        stream_type=StreamType().pulse_stream
+    )
+
+    await message.reply(f"▶️ **Playing:** `{title}`")
+
+# ──────────────────────────────
+# PAUSE
+# ──────────────────────────────
+@app.on_message(filters.command("pause") & filters.group)
+async def pause(_, message: Message):
+    await pytgcalls.pause_stream(message.chat.id)
+    await message.reply("⏸️ Paused")
+
+# ──────────────────────────────
+# RESUME
+# ──────────────────────────────
+@app.on_message(filters.command("resume") & filters.group)
+async def resume(_, message: Message):
+    await pytgcalls.resume_stream(message.chat.id)
+    await message.reply("▶️ Resumed")
+
+# ──────────────────────────────
+# STOP
+# ──────────────────────────────
+@app.on_message(filters.command("stop") & filters.group)
 async def stop(_, message: Message):
-    await call.leave_group_call(message.chat.id)
-    await message.reply("⏹ music stop kar diya")
+    await pytgcalls.leave_group_call(message.chat.id)
+    await message.reply("⏹️ Stopped & Left VC")
 
+# ──────────────────────────────
+# RUN
+# ──────────────────────────────
 async def main():
-    await bot.start()
-    await user.start()
-    await call.start()
-    print("✅ Music bot started")
+    await app.start()
+    await pytgcalls.start()
+    print("🎵 Music Bot Started")
     await asyncio.Event().wait()
 
 asyncio.run(main())
