@@ -1,5 +1,37 @@
+#pyrogram==2.0.106
+#tgcrypto
+#py-tgcalls==0.9.7
+#yt-dlp
+#ffmpeg
+
+
+git+https://github.com/prashantsahlot/FrozenGram.git
+
+# Telegram
 pyrogram==2.0.106
 tgcrypto
+
+# Voice / Music (IMPORTANT)
 py-tgcalls==0.9.7
+
+# Audio / Download
 yt-dlp
-ffmpeg
+ffmpeg-python
+isodate
+
+# Web / API
+aiohttp
+flask
+Flask-RESTful
+requests
+python-dotenv
+
+# Utils
+pillow
+psutil
+aiofiles
+gender-guesser
+
+# Databases (optional – agar bot me use ho)
+asyncpg
+pymongo
